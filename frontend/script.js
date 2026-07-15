@@ -1,6 +1,6 @@
-const API_URL = "https://blackgpt-a5xz.onrender.com/chat";
-const NEW_CHAT_URL = "https://blackgpt-a5xz.onrender.com/new-chat";
-const TITLE_URL = "https://blackgpt-a5xz.onrender.com/generate-title";
+const API_URL = "http://127.0.0.1:5000/chat";
+const NEW_CHAT_URL = "http://127.0.0.1:5000/new-chat";
+const TITLE_URL = "http://127.0.0.1:5000/generate-title";
 const STORAGE_KEY = "blackgpt_conversations";
 
 const chatWindow = document.getElementById("chatWindow");
