@@ -313,7 +313,13 @@ def chat():
             else:
                 yield f"\n\n⚠️ Server me kuch gadbad ho gayi: {str(e)}"
 
-    return Response(stream_with_context(generate_stream()), mimetype="text/plain")
+    # CRITICAL LIVE STREAM FIX FOR RENDER: 
+    # Mimetype ko text/event-stream kiya aur headers lagaye taaki proxy buffer na kare
+    response = Response(stream_with_context(generate_stream()), mimetype="text/event-stream")
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    response.headers["Connection"] = "keep-alive"
+    return response
 
 
 @app.route("/generate-title", methods=["POST"])
