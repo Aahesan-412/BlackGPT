@@ -58,7 +58,7 @@ if not HF_TOKEN:
 # 3) FLASK APP SETUP
 # ---------------------------------------------------
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
 
 MAX_MESSAGE_LENGTH = 4000
 MAX_RECENT_HISTORY = 10
