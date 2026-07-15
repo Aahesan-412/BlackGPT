@@ -1,6 +1,6 @@
-const API_URL = "https://blackgpt-a5xz.onrender.com/chat";
-const NEW_CHAT_URL = "https://blackgpt-a5xz.onrender.com/new-chat";
-const TITLE_URL = "https://blackgpt-a5xz.onrender.com/generate-title";
+const API_URL = "http://127.0.0.1:5000/chat";
+const NEW_CHAT_URL = "http://127.0.0.1:5000/new-chat";
+const TITLE_URL = "http://127.0.0.1:5000/generate-title";
 const STORAGE_KEY = "blackgpt_conversations";
 
 const chatWindow = document.getElementById("chatWindow");
@@ -279,6 +279,7 @@ micBtn.addEventListener("click", () => {
 
 // ---------- AI se meaningful chat title banwana ----------
 async function generateConversationTitle(convId, userMessage, aiReply) {
+  console.log("Title generation triggered for conversation:", convId); // Debugging line
   try {
     const response = await fetch(TITLE_URL, {
       method: "POST",
@@ -287,17 +288,20 @@ async function generateConversationTitle(convId, userMessage, aiReply) {
     });
 
     const data = await response.json();
+    console.log("Response from title API:", data); // Debugging line
+    
     const conv = conversations.find((c) => c.id === convId);
     if (conv && data.title) {
       conv.title = data.title;
       saveConversations();
       renderHistoryList();
+      console.log("Title successfully updated to:", data.title);
     }
   } catch (err) {
     console.warn("Title generate nahi ho paya:", err);
   }
 }
-
+// ---------- Message bhejna (STREAMING) ----------
 // ---------- Message bhejna (STREAMING) ----------
 async function sendMessage() {
   let text = userInput.value.trim();
@@ -312,7 +316,8 @@ async function sendMessage() {
     conv = getActiveConversation();
   }
 
-  const isFirstMessage = conv.messages.length === 0;
+  // FORCE CHECK: Agar title abhi bhi "New Chat" hai, to hume title generate karna hai
+  const needsTitleUpdate = (conv.title === "New Chat");
 
   conv.messages.push({ role: "user", text });
   addMessageToDOM(text, "user");
@@ -366,7 +371,9 @@ async function sendMessage() {
     conv.messages.push({ role: "bot", text: fullText });
     saveConversations();
 
-    if (isFirstMessage) {
+    // Agar chat ka title abhi tak default "New Chat" hai, to use generate karo!
+    if (needsTitleUpdate) {
+      console.log("Calling title generator because title is 'New Chat'...");
       generateConversationTitle(conv.id, text, fullText);
     }
 
