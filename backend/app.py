@@ -3,7 +3,7 @@ Black GPT — Backend
 Flask + LangGraph + LangChain (Groq) + ChromaDB (memory) + HuggingFace Inference API (embeddings)
 Streaming response support (ChatGPT jaisa line-by-line output)
 """
-
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -89,9 +89,16 @@ recent_chats: dict[str, list[dict]] = {}
 logger.info("Black GPT backend ready hai! (Embeddings ab HuggingFace API se aa rahi hain, local model nahi)")
 
 
-def get_embedding(text: str) -> List[float]:
-    """HuggingFace ke hosted Inference API se embedding leta hai — agar slow/fail ho to empty return karta hai."""
-    try:
+_executor = ThreadPoolExecutor(max_workers=4)
+
+
+def get_embedding(text: str, timeout: float = 4.0) -> List[float]:
+    """
+    HuggingFace ke hosted Inference API se embedding leta hai.
+    Agar 4 second me na aaye, to skip kar deta hai (khali list return) —
+    taaki chatbot ka reply atke nahi.
+    """
+    def _fetch():
         result = hf_client.feature_extraction(text, model=EMBEDDING_MODEL)
         if hasattr(result, "tolist"):
             result = result.tolist()
@@ -101,8 +108,15 @@ def get_embedding(text: str) -> List[float]:
             avg = [sum(row[i] for row in result) / length for i in range(dim)]
             return avg
         return result
+
+    try:
+        future = _executor.submit(_fetch)
+        return future.result(timeout=timeout)
+    except FutureTimeoutError:
+        logger.warning("Embedding 4 sec me nahi aayi — memory is baar skip ki ja rahi hai")
+        return []
     except Exception as e:
-        logger.warning(f"Embedding fetch fail/slow hua, memory skip ki jayegi: {e}")
+        logger.warning(f"Embedding fetch fail hui: {e}")
         return []
 
 def save_to_memory(session_id: str, role: str, text: str) -> None:
