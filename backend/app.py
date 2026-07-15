@@ -90,23 +90,20 @@ logger.info("Black GPT backend ready hai! (Embeddings ab HuggingFace API se aa r
 
 
 def get_embedding(text: str) -> List[float]:
-    """HuggingFace ke hosted Inference API se embedding leta hai — local memory nahi khaata."""
+    """HuggingFace ke hosted Inference API se embedding leta hai — agar slow/fail ho to empty return karta hai."""
     try:
         result = hf_client.feature_extraction(text, model=EMBEDDING_MODEL)
-        # result numpy array ya list ho sakta hai, dono handle karo
         if hasattr(result, "tolist"):
             result = result.tolist()
-        # Agar nested list aaye (token-level), to average nikal ke single vector bana do
         if isinstance(result[0], list):
             length = len(result)
             dim = len(result[0])
             avg = [sum(row[i] for row in result) / length for i in range(dim)]
             return avg
         return result
-    except Exception:
-        logger.exception("HuggingFace se embedding fetch karte waqt error aaya")
+    except Exception as e:
+        logger.warning(f"Embedding fetch fail/slow hua, memory skip ki jayegi: {e}")
         return []
-
 
 def save_to_memory(session_id: str, role: str, text: str) -> None:
     """Message ko ChromaDB me embedding ke saath save karta hai (long-term memory)."""
