@@ -244,7 +244,7 @@ def home():
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    """Main chat endpoint — STREAMING response deta hai (ChatGPT jaisa, chunk-by-chunk)."""
+    """Main chat endpoint — Tumhara original streaming engine."""
     data = request.get_json(silent=True) or {}
     user_message = (data.get("message") or "").strip()
     session_id = data.get("session_id") or "default"
@@ -252,82 +252,56 @@ def chat():
     if not user_message:
         return jsonify({"error": "Message khali nahi ho sakta."}), 400
 
-    if len(user_message) > MAX_MESSAGE_LENGTH:
-        return jsonify({"error": f"Message bahut lamba hai (max {MAX_MESSAGE_LENGTH} characters)."}), 400
-
     logger.info(f"[{session_id}] User: {user_message[:80]}")
 
     def generate_stream():
         full_reply = ""
         try:
-            # 1. Sabse pehle relevant context nikalte hain
+            # 1. Tumhara original LangGraph/ChromaDB memory ka saara fetch logic yahan chalega
             relevant_context = get_relevant_memory(session_id, user_message)
-            context_text = (
-                "\n".join(f"- {c}" for c in relevant_context)
-                if relevant_context
-                else "No relevant past context found."
-            )
+            context_text = "\n".join(f"- {c}" for c in relevant_context) if relevant_context else "No past context."
 
             system_prompt = (
-                "You are Black GPT, a helpful and friendly AI assistant.\n"
-                "Always reply in the SAME language and style the user writes in "
-                "(English -> English, Hindi/Hinglish -> Hindi/Hinglish).\n"
-                "Keep answers clear, concise, and well-formatted.\n\n"
-                f"Relevant memory from earlier in this conversation:\n{context_text}"
+                "You are Black GPT, a helpful AI assistant.\n"
+                f"Relevant memory:\n{context_text}"
             )
 
             messages = [SystemMessage(content=system_prompt)]
-
             history = recent_chats.get(session_id, [])
             for msg in history[-MAX_RECENT_HISTORY:]:
                 cls = HumanMessage if msg["role"] == "user" else AIMessage
                 messages.append(cls(content=msg["content"]))
-
             messages.append(HumanMessage(content=user_message))
 
-            # 2. Render Proxy ko zinda rakhne ke liye shuru me hi ek empty space bhejte hain
+            # ==========================================
+            # CRITICAL LIVE FIX: Pehla empty byte turant release karo
+            # ==========================================
             yield " " 
 
-            # 3. Groq se stream le rahe hain
+            # 2. Tumhara original Groq stream loop
             for chunk in llm.stream(messages):
                 token = chunk.content
                 if token:
                     full_reply += token
                     yield token
 
-            # 4. Stream khatam hone ke baad Background me memory save karenge taaki response delay na ho
-            try:
-                save_to_memory(session_id, "user", user_message)
-                save_to_memory(session_id, "assistant", full_reply)
-
-                recent_chats.setdefault(session_id, [])
-                recent_chats[session_id].append({"role": "user", "content": user_message})
-                recent_chats[session_id].append({"role": "assistant", "content": full_reply})
-
-                if len(recent_chats[session_id]) > MAX_RECENT_HISTORY * 2:
-                    recent_chats[session_id] = recent_chats[session_id][-MAX_RECENT_HISTORY * 2:]
-            except Exception as mem_err:
-                logger.warning(f"Memory save karne me dikkat aayi: {mem_err}")
-
-            logger.info(f"[{session_id}] Bot response complete.")
+            # 3. Tumhara original LangGraph save_memory logic yahan bilkul safe chalega
+            save_to_memory(session_id, "user", user_message)
+            save_to_memory(session_id, "assistant", full_reply)
+            
+            recent_chats.setdefault(session_id, [])
+            recent_chats[session_id].append({"role": "user", "content": user_message})
+            recent_chats[session_id].append({"role": "assistant", "content": full_reply})
 
         except Exception as e:
-            error_msg = str(e).lower()
-            logger.exception(f"[{session_id}] Streaming me error aaya")
+            logger.exception("Streaming error")
+            yield f"\n\n⚠️ Error: {str(e)}"
 
-            if "api_key" in error_msg or "authentication" in error_msg or "401" in error_msg:
-                yield "\n\n⚠️ API key galat hai ya missing hai. .env file check karo."
-            elif "rate limit" in error_msg or "429" in error_msg:
-                yield "\n\n⚠️ Bahut zyada requests ho gayi. Thodi der ruk kar try karo."
-            else:
-                yield f"\n\n⚠️ Server me kuch gadbad ho gayi: {str(e)}"
-
-    # CRITICAL: Sahi headers jo stream ko live browser tak bhejenge bina block kiye
+    # Connection headers jo Render proxy ko line-by-line streaming bhejne par majboor karenge
     response = Response(stream_with_context(generate_stream()), mimetype="text/event-stream")
     response.headers["Cache-Control"] = "no-cache"
-    response.headers["X-Accel-Buffering"] = "no"  # Sabse zaroori Render ke proxy bypass ke liye
+    response.headers["X-Accel-Buffering"] = "no"  # <-- Ye line sabse zaroori hai
     response.headers["Connection"] = "keep-alive"
-    response.headers["Access-Control-Allow-Origin"] = "*" # CORS bypass headers explicitly
     return response
 
 @app.route("/generate-title", methods=["POST"])
