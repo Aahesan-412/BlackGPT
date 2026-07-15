@@ -1,6 +1,6 @@
 """
 Black GPT — Backend
-Flask + LangGraph + LangChain (Groq) + ChromaDB (memory) + HuggingFace embeddings
+Flask + LangGraph + LangChain (Groq) + ChromaDB (memory) + HuggingFace Inference API (embeddings)
 Streaming response support (ChatGPT jaisa line-by-line output)
 """
 
@@ -18,7 +18,7 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.graph import StateGraph, END
 
-from sentence_transformers import SentenceTransformer
+from huggingface_hub import InferenceClient
 import chromadb
 
 # ---------------------------------------------------
@@ -36,7 +36,6 @@ logger = logging.getLogger("BlackGPT")
 # ---------------------------------------------------
 load_dotenv()
 
-
 if os.getenv("LANGCHAIN_TRACING_V2") == "true":
     logger.info(f"LangSmith tracing ON — Project: {os.getenv('LANGCHAIN_PROJECT')}")
 else:
@@ -44,10 +43,15 @@ else:
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 if not GROQ_API_KEY:
     logger.error("GROQ_API_KEY .env file me nahi mili! Server band kar raha hu.")
-    logger.error("Fix: backend/.env file banao aur GROQ_API_KEY=your_key daalo")
+    sys.exit(1)
+
+if not HF_TOKEN:
+    logger.error("HF_TOKEN .env file me nahi mili! Server band kar raha hu.")
+    logger.error("Fix: https://huggingface.co/settings/tokens se token banao aur .env me HF_TOKEN=... daalo")
     sys.exit(1)
 
 # ---------------------------------------------------
@@ -59,6 +63,7 @@ CORS(app)
 MAX_MESSAGE_LENGTH = 4000
 MAX_RECENT_HISTORY = 10
 MAX_MEMORY_RESULTS = 3
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 # ---------------------------------------------------
 # 4) LLM SETUP (Groq via LangChain)
@@ -72,22 +77,43 @@ llm = ChatGroq(
 )
 
 # ---------------------------------------------------
-# 5) MEMORY SETUP (HuggingFace Embeddings + ChromaDB)
+# 5) MEMORY SETUP (HuggingFace Inference API + ChromaDB)
 # ---------------------------------------------------
-logger.info("Embedding model load ho raha hai (pehli baar thoda time lagega)...")
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
+hf_client = InferenceClient(token=HF_TOKEN)
 
 chroma_client = chromadb.PersistentClient(path="chroma_db")
 collection = chroma_client.get_or_create_collection(name="chat_memory")
 
 recent_chats: dict[str, list[dict]] = {}
 
-logger.info("Black GPT backend ready hai!")
+logger.info("Black GPT backend ready hai! (Embeddings ab HuggingFace API se aa rahi hain, local model nahi)")
+
+
+def get_embedding(text: str) -> List[float]:
+    """HuggingFace ke hosted Inference API se embedding leta hai — local memory nahi khaata."""
+    try:
+        result = hf_client.feature_extraction(text, model=EMBEDDING_MODEL)
+        # result numpy array ya list ho sakta hai, dono handle karo
+        if hasattr(result, "tolist"):
+            result = result.tolist()
+        # Agar nested list aaye (token-level), to average nikal ke single vector bana do
+        if isinstance(result[0], list):
+            length = len(result)
+            dim = len(result[0])
+            avg = [sum(row[i] for row in result) / length for i in range(dim)]
+            return avg
+        return result
+    except Exception:
+        logger.exception("HuggingFace se embedding fetch karte waqt error aaya")
+        return []
 
 
 def save_to_memory(session_id: str, role: str, text: str) -> None:
+    """Message ko ChromaDB me embedding ke saath save karta hai (long-term memory)."""
     try:
-        embedding = embedder.encode(text).tolist()
+        embedding = get_embedding(text)
+        if not embedding:
+            return
         collection.add(
             ids=[str(uuid.uuid4())],
             embeddings=[embedding],
@@ -103,8 +129,11 @@ def save_to_memory(session_id: str, role: str, text: str) -> None:
 
 
 def get_relevant_memory(session_id: str, query: str, n_results: int = MAX_MEMORY_RESULTS) -> List[str]:
+    """User ke message se semantically related purani baatein dhoondta hai."""
     try:
-        query_embedding = embedder.encode(query).tolist()
+        query_embedding = get_embedding(query)
+        if not query_embedding:
+            return []
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=n_results,
@@ -117,6 +146,7 @@ def get_relevant_memory(session_id: str, query: str, n_results: int = MAX_MEMORY
 
 
 def clear_session_memory(session_id: str) -> None:
+    """Ek session ki poori memory (short-term + long-term) clear karta hai."""
     recent_chats.pop(session_id, None)
     try:
         collection.delete(where={"session_id": session_id})
@@ -125,7 +155,7 @@ def clear_session_memory(session_id: str) -> None:
 
 
 # ---------------------------------------------------
-# 6) LANGGRAPH — sirf non-streaming helper endpoints (title gen) ke liye use hota hai
+# 6) LANGGRAPH — helper endpoints ke liye
 # ---------------------------------------------------
 
 class ChatState(TypedDict):
@@ -266,7 +296,7 @@ def chat():
             logger.exception(f"[{session_id}] Streaming me error aaya")
 
             if "api_key" in error_msg or "authentication" in error_msg or "401" in error_msg:
-                yield "\n\n⚠️ Groq API key galat hai ya missing hai. .env file check karo."
+                yield "\n\n⚠️ API key galat hai ya missing hai. .env file check karo."
             elif "rate limit" in error_msg or "429" in error_msg:
                 yield "\n\n⚠️ Bahut zyada requests ho gayi. Thodi der ruk kar try karo."
             else:
@@ -310,7 +340,6 @@ def generate_title():
 
     except Exception as e:
         logger.exception(f"[{session_id}] Title generate karte waqt error aaya: {e}")
-        # Smart fallback: seedha message copy nahi, sirf pehle 4 words capitalize
         words = user_message.split()[:4]
         fallback = " ".join(words).capitalize()
         if len(user_message.split()) > 4:

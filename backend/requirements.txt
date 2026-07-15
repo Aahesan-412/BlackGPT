@@ -4,7 +4,7 @@ python-dotenv
 langchain
 langchain-groq
 langgraph
-sentence-transformers
+huggingface_hub
 chromadb
-langsmith
 gunicorn
+langsmith
