@@ -381,6 +381,18 @@ def server_error(e):
 # ---------------------------------------------------
 # 8) RUN SERVER
 # ---------------------------------------------------
+# Vercel serverless entry point
+app = app
+
+if __name__ == "__main__":
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", 5000))
+    debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    app.run(debug=debug_mode, host=host, port=port)
+
+
+
+
 if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 5000))
