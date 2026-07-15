@@ -298,11 +298,17 @@ def chat():
             yield f"\n\n⚠️ Error: {str(e)}"
 
     # Connection headers jo Render proxy ko line-by-line streaming bhejne par majboor karenge
-    response = Response(stream_with_context(generate_stream()), mimetype="text/event-stream")
-    response.headers["Cache-Control"] = "no-cache"
-    response.headers["X-Accel-Buffering"] = "no"  # <-- Ye line sabse zaroori hai
-    response.headers["Connection"] = "keep-alive"
-    return response
+    # app.py ke /chat endpoint ke bilkul end ka return statement aisa hona chahiye:
+    return Response(
+        stream_with_context(generate_stream()), 
+        mimetype="text/plain",  # <-- Isko 'text/event-stream' se badal kar 'text/plain' karo
+        headers={
+        "Cache-Control": "no-cache, no-transform", # no-transform Render ko response modify karne se rokta hai
+        "X-Accel-Buffering": "no",                  # Proxy buffering ko bypass karta hai
+        "Connection": "keep-alive",
+        "Content-Type": "text/plain; charset=utf-8"
+    }
+)
 
 @app.route("/generate-title", methods=["POST"])
 def generate_title():
