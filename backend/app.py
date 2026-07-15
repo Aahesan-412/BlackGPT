@@ -260,6 +260,7 @@ def chat():
     def generate_stream():
         full_reply = ""
         try:
+            # 1. Sabse pehle relevant context nikalte hain
             relevant_context = get_relevant_memory(session_id, user_message)
             context_text = (
                 "\n".join(f"- {c}" for c in relevant_context)
@@ -284,23 +285,31 @@ def chat():
 
             messages.append(HumanMessage(content=user_message))
 
+            # 2. Render Proxy ko zinda rakhne ke liye shuru me hi ek empty space bhejte hain
+            yield " " 
+
+            # 3. Groq se stream le rahe hain
             for chunk in llm.stream(messages):
                 token = chunk.content
                 if token:
                     full_reply += token
                     yield token
 
-            save_to_memory(session_id, "user", user_message)
-            save_to_memory(session_id, "assistant", full_reply)
+            # 4. Stream khatam hone ke baad Background me memory save karenge taaki response delay na ho
+            try:
+                save_to_memory(session_id, "user", user_message)
+                save_to_memory(session_id, "assistant", full_reply)
 
-            recent_chats.setdefault(session_id, [])
-            recent_chats[session_id].append({"role": "user", "content": user_message})
-            recent_chats[session_id].append({"role": "assistant", "content": full_reply})
+                recent_chats.setdefault(session_id, [])
+                recent_chats[session_id].append({"role": "user", "content": user_message})
+                recent_chats[session_id].append({"role": "assistant", "content": full_reply})
 
-            if len(recent_chats[session_id]) > MAX_RECENT_HISTORY * 2:
-                recent_chats[session_id] = recent_chats[session_id][-MAX_RECENT_HISTORY * 2:]
+                if len(recent_chats[session_id]) > MAX_RECENT_HISTORY * 2:
+                    recent_chats[session_id] = recent_chats[session_id][-MAX_RECENT_HISTORY * 2:]
+            except Exception as mem_err:
+                logger.warning(f"Memory save karne me dikkat aayi: {mem_err}")
 
-            logger.info(f"[{session_id}] Bot: {full_reply[:80]}")
+            logger.info(f"[{session_id}] Bot response complete.")
 
         except Exception as e:
             error_msg = str(e).lower()
@@ -313,14 +322,13 @@ def chat():
             else:
                 yield f"\n\n⚠️ Server me kuch gadbad ho gayi: {str(e)}"
 
-    # CRITICAL LIVE STREAM FIX FOR RENDER: 
-    # Mimetype ko text/event-stream kiya aur headers lagaye taaki proxy buffer na kare
+    # CRITICAL: Sahi headers jo stream ko live browser tak bhejenge bina block kiye
     response = Response(stream_with_context(generate_stream()), mimetype="text/event-stream")
     response.headers["Cache-Control"] = "no-cache"
-    response.headers["X-Accel-Buffering"] = "no"
+    response.headers["X-Accel-Buffering"] = "no"  # Sabse zaroori Render ke proxy bypass ke liye
     response.headers["Connection"] = "keep-alive"
+    response.headers["Access-Control-Allow-Origin"] = "*" # CORS bypass headers explicitly
     return response
-
 
 @app.route("/generate-title", methods=["POST"])
 def generate_title():
