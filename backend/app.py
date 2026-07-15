@@ -299,16 +299,21 @@ def chat():
 
     # Connection headers jo Render proxy ko line-by-line streaming bhejne par majboor karenge
     # app.py ke /chat endpoint ke bilkul end ka return statement aisa hona chahiye:
-    return Response(
+    response = Response(
         stream_with_context(generate_stream()), 
-        mimetype="text/plain",  # <-- Isko 'text/event-stream' se badal kar 'text/plain' karo
-        headers={
-        "Cache-Control": "no-cache, no-transform", # no-transform Render ko response modify karne se rokta hai
-        "X-Accel-Buffering": "no",                  # Proxy buffering ko bypass karta hai
-        "Connection": "keep-alive",
-        "Content-Type": "text/plain; charset=utf-8"
-    }
-)
+        mimetype="text/plain"
+    )
+    response.headers["Cache-Control"] = "no-cache, no-transform"
+    response.headers["X-Accel-Buffering"] = "no"
+    response.headers["Connection"] = "keep-alive"
+    response.headers["Content-Type"] = "text/plain; charset=utf-8"
+    
+    # CORS headers manual safety ke liye (agar Flask-CORS kabhi fail ho)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
+    
+    return response
 
 @app.route("/generate-title", methods=["POST"])
 def generate_title():
