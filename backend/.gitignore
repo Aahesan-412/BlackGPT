@@ -1,0 +1,14 @@
+myenv/
+backend/myenv/
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+chroma_db/
+backend/chroma_db/
+.env
+backend/.env
+*.db
+.vscode/
+.idea/

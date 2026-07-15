@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Black GPT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="mobile-topbar">
+    <button id="menuBtn" class="icon-btn">☰</button>
+    <span class="mobile-logo">⚡ Black<span class="accent">GPT</span></span>
+  </div>
+
+  <div class="app">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <span class="logo">⚡ Black<span class="accent">GPT</span></span>
+      </div>
+      <button id="newChatBtn" class="new-chat-btn">+ New Chat</button>
+      <div class="history-label">Recents</div>
+      <div class="history-list" id="historyList"></div>
+      <div class="sidebar-footer">
+        <span>Built with Flask + Groq</span>
+      </div>
+    </aside>
+
+    <div class="overlay" id="overlay"></div>
+
+    <!-- MAIN CHAT AREA -->
+    <main class="main">
+      <!-- Fixed top-left header -->
+      <div class="chat-header">
+        <span class="chat-header-logo">⚡ Black<span class="accent">GPT</span></span>
+      </div>
+
+      <div class="chat-window" id="chatWindow">
+        <div class="welcome-screen" id="welcomeScreen">
+          <h1>⚡ Black<span class="accent">GPT</span></h1>
+          <p>Poocho kuch bhi, main yaha hoon madad ke liye.</p>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <!-- attached file chip -->
+        <div class="file-chip" id="fileChip" style="display:none;">
+          <span id="fileChipName"></span>
+          <button id="fileChipRemove" title="Remove">✕</button>
+        </div>
+
+        <div class="input-box">
+          <button id="attachBtn" class="icon-input-btn" title="Attach file">📎</button>
+
+          <textarea id="userInput" placeholder="Message Black GPT..." rows="1"></textarea>
+
+          <button id="micBtn" class="icon-input-btn" title="Voice input">🎤</button>
+          <button id="sendBtn" class="send-btn" aria-label="Send message">➤</button>
+
+          <input type="file" id="fileInput" hidden />
+        </div>
+        <p class="disclaimer">Black GPT galtiyaan kar sakta hai. Zaroori info verify kar lena.</p>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Right-click context menu -->
+  <div class="context-menu" id="contextMenu">
+    <div class="context-item" id="ctxRename">Rename</div>
+    <div class="context-item danger" id="ctxDelete">Delete</div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
