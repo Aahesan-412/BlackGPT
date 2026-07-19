@@ -267,7 +267,7 @@ def chat():
         stream_with_context(generate_stream()), 
         mimetype="text/plain"
     )
-    response.direct_passthrough = True
+    
     response.headers["Cache-Control"] = "no-cache, no-transform"
     response.headers["X-Accel-Buffering"] = "no"
     response.headers["Connection"] = "keep-alive"
