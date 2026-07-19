@@ -303,7 +303,9 @@ async function generateConversationTitle(convId, userMessage, aiReply) {
 }
 // ---------- Message bhejna (STREAMING) ----------
 // ---------- Message bhejna (STREAMING) ----------
+
 async function sendMessage() {
+  console.log("SEND MESSAGE FUNCTION CALLED");
   let text = userInput.value.trim();
   if (attachedFileName) {
     text = text ? `${text}\n\n📎 Attached: ${attachedFileName}` : `📎 Attached: ${attachedFileName}`;
@@ -323,6 +325,7 @@ async function sendMessage() {
   addMessageToDOM(text, "user");
   renderHistoryList();
   saveConversations();
+
 
   userInput.value = "";
   userInput.style.height = "auto";
@@ -374,7 +377,9 @@ async function sendMessage() {
     // Agar chat ka title abhi tak default "New Chat" hai, to use generate karo!
     if (needsTitleUpdate) {
       console.log("Calling title generator because title is 'New Chat'...");
-      generateConversationTitle(conv.id, text, fullText);
+      setTimeout(() => {
+        generateConversationTitle(conv.id, text, fullText);
+      }, 500);
     }
 
   } catch (err) {

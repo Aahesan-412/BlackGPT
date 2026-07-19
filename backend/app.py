@@ -19,7 +19,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.graph import StateGraph, END
 
 from huggingface_hub import InferenceClient
-import chromadb
+# import chromadb
 
 # ---------------------------------------------------
 # 1) LOGGING SETUP
@@ -81,8 +81,8 @@ llm = ChatGroq(
 # ---------------------------------------------------
 hf_client = InferenceClient(token=HF_TOKEN)
 
-chroma_client = chromadb.PersistentClient(path="chroma_db")
-collection = chroma_client.get_or_create_collection(name="chat_memory")
+# chroma_client = chromadb.PersistentClient(path="chroma_db")
+# collection = chroma_client.get_or_create_collection(name="chat_memory")
 
 recent_chats: dict[str, list[dict]] = {}
 
@@ -119,50 +119,14 @@ def get_embedding(text: str, timeout: float = 4.0) -> List[float]:
         logger.warning(f"Embedding fetch fail hui: {e}")
         return []
 
-def save_to_memory(session_id: str, role: str, text: str) -> None:
-    """Message ko ChromaDB me embedding ke saath save karta hai (long-term memory)."""
-    try:
-        embedding = get_embedding(text)
-        if not embedding:
-            return
-        collection.add(
-            ids=[str(uuid.uuid4())],
-            embeddings=[embedding],
-            documents=[text],
-            metadatas=[{
-                "session_id": session_id,
-                "role": role,
-                "timestamp": datetime.utcnow().isoformat(),
-            }],
-        )
-    except Exception:
-        logger.exception("ChromaDB me save karte waqt error aaya")
+def save_to_memory(session_id, role, text):
+    pass
 
+def get_relevant_memory(session_id, query, n_results=3):
+    return []
 
-def get_relevant_memory(session_id: str, query: str, n_results: int = MAX_MEMORY_RESULTS) -> List[str]:
-    """User ke message se semantically related purani baatein dhoondta hai."""
-    try:
-        query_embedding = get_embedding(query)
-        if not query_embedding:
-            return []
-        results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=n_results,
-            where={"session_id": session_id},
-        )
-        return results.get("documents", [[]])[0]
-    except Exception:
-        logger.exception("ChromaDB se memory fetch karte waqt error aaya")
-        return []
-
-
-def clear_session_memory(session_id: str) -> None:
-    """Ek session ki poori memory (short-term + long-term) clear karta hai."""
+def clear_session_memory(session_id):
     recent_chats.pop(session_id, None)
-    try:
-        collection.delete(where={"session_id": session_id})
-    except Exception:
-        logger.exception("ChromaDB se session memory clear karte waqt error aaya")
 
 
 # ---------------------------------------------------
@@ -382,19 +346,8 @@ def server_error(e):
 # 8) RUN SERVER
 # ---------------------------------------------------
 # Vercel serverless entry point
-app = app
-
 if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 5000))
     debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
-    app.run(debug=debug_mode, host=host, port=port)
-
-
-
-
-if __name__ == "__main__":
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", 5000))
-    debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
-    app.run(debug=debug_mode, host=host, port=port)
+    app.run(debug=debug_mode, host=host, port=port, threaded=True)
