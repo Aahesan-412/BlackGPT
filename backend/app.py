@@ -153,12 +153,12 @@ def generate_reply_node(state: ChatState) -> ChatState:
         else "No relevant past context found."
     )
     system_prompt = (
-        "You are Black GPT, a helpful and friendly AI assistant.\n"
-        "Always reply in the SAME language and style the user writes in "
-        "(English -> English, Hindi/Hinglish -> Hindi/Hinglish).\n"
-        "Keep answers clear, concise, and well-formatted.\n\n"
-        f"Relevant memory from earlier in this conversation:\n{context_text}"
-    )
+                "You are Black GPT, a helpful and friendly AI assistant.\n"
+                "Always reply in the SAME language and style the user writes in "
+                "(English -> English, Hindi/Hinglish -> Hindi/Hinglish).\n"
+                "Keep answers clear, concise, and well-formatted.\n"
+                "Do not use markdown formatting like asterisks or hashtags — respond in plain text only."
+            )
     messages = [SystemMessage(content=system_prompt)]
     history = recent_chats.get(session_id, [])
     for msg in history[-MAX_RECENT_HISTORY:]:

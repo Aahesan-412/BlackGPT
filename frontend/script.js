@@ -178,6 +178,16 @@ function renderChatWindow() {
   conv.messages.forEach((msg) => addMessageToDOM(msg.text, msg.role));
 }
 
+function formatText(text) {
+  // Pehle HTML-unsafe characters escape karo (security ke liye)
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  // Phir **bold** ko <strong> me convert karo
+  return escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
 function addMessageToDOM(text, sender) {
   welcomeScreen.style.display = "none";
   const row = document.createElement("div");
@@ -185,13 +195,13 @@ function addMessageToDOM(text, sender) {
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
-  bubble.textContent = text;
+  bubble.innerHTML = formatText(text);
 
   row.appendChild(bubble);
   chatWindow.appendChild(row);
   chatWindow.scrollTop = chatWindow.scrollHeight;
 
-  return bubble; // streaming ke liye zaroori — ismein hi live text bharega
+  return bubble;
 }
 
 function showTyping() {
@@ -367,7 +377,7 @@ async function sendMessage() {
 
       const chunkText = decoder.decode(value, { stream: true });
       fullText += chunkText;
-      botBubble.textContent = fullText;
+      botBubble.innerHTML = formatText(fullText);
       chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 
