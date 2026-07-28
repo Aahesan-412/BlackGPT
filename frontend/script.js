@@ -175,7 +175,7 @@ function renderChatWindow() {
     welcomeScreen.style.display = "block";
     return;
   }
-  conv.messages.forEach((msg) => addMessageToDOM(msg.text, msg.role));
+  conv.messages.forEach((msg, index) => addMessageToDOM(msg.text, msg.role, index));
 }
 
 function formatText(text) {
@@ -188,7 +188,30 @@ function formatText(text) {
   return escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 }
 
-function addMessageToDOM(text, sender) {
+function typeOutText(bubbleEl, fullText) {
+  return new Promise((resolve) => {
+    const words = fullText.split(" ");
+    let current = "";
+    let i = 0;
+
+    function step() {
+      if (i >= words.length) {
+        bubbleEl.innerHTML = formatText(fullText);
+        resolve();
+        return;
+      }
+      current += (i === 0 ? "" : " ") + words[i];
+      bubbleEl.innerHTML = formatText(current);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+      i++;
+      setTimeout(step, 25); // 25ms per word — adjust speed here
+    }
+
+    step();
+  });
+}
+
+function addMessageToDOM(text, sender, messageIndex = null) {
   welcomeScreen.style.display = "none";
   const row = document.createElement("div");
   row.className = `message-row ${sender}`;
@@ -196,8 +219,18 @@ function addMessageToDOM(text, sender) {
   const bubble = document.createElement("div");
   bubble.className = "bubble";
   bubble.innerHTML = formatText(text);
-
   row.appendChild(bubble);
+
+  // Sirf user messages pe edit button dikhao
+  if (sender === "user" && messageIndex !== null) {
+    const editBtn = document.createElement("button");
+    editBtn.className = "edit-btn";
+    editBtn.textContent = "✏️";
+    editBtn.title = "Edit message";
+    editBtn.addEventListener("click", () => startEditMessage(messageIndex, bubble, row));
+    row.appendChild(editBtn);
+  }
+
   chatWindow.appendChild(row);
   chatWindow.scrollTop = chatWindow.scrollHeight;
 
@@ -264,26 +297,42 @@ if (SpeechRecognition) {
   recognition.onend = () => {
     isRecording = false;
     micBtn.classList.remove("recording");
+    micBtn.textContent = "🎤";
+    userInput.placeholder = "Message Black GPT...";
   };
 
-  recognition.onerror = () => {
+  recognition.onerror = (event) => {
+    console.error("Speech recognition error:", event.error);
     isRecording = false;
     micBtn.classList.remove("recording");
+    micBtn.textContent = "🎤";
+    userInput.placeholder = "Message Black GPT...";
   };
 } else {
   micBtn.title = "Voice input is browser me supported nahi hai (Chrome try karo)";
 }
 
 micBtn.addEventListener("click", () => {
-  if (!recognition) return;
+  if (!recognition) {
+    alert("Voice input is not supported in this browser. Please try Chrome.");
+    return;
+  }
   if (isRecording) {
     recognition.stop();
     isRecording = false;
     micBtn.classList.remove("recording");
+    micBtn.textContent = "🎤";
+    userInput.placeholder = "Message Black GPT...";
   } else {
-    recognition.start();
-    isRecording = true;
-    micBtn.classList.add("recording");
+    try {
+      recognition.start();
+      isRecording = true;
+      micBtn.classList.add("recording");
+      micBtn.textContent = "⏹️";
+      userInput.placeholder = "Listening... speak now";
+    } catch (err) {
+      console.error("Mic start error:", err);
+    }
   }
 });
 
@@ -313,6 +362,98 @@ async function generateConversationTitle(convId, userMessage, aiReply) {
 }
 // ---------- Message bhejna (STREAMING) ----------
 // ---------- Message bhejna (STREAMING) ----------
+function startEditMessage(messageIndex, bubbleEl, rowEl) {
+  const conv = getActiveConversation();
+  if (!conv) return;
+
+  const originalText = conv.messages[messageIndex].text;
+
+  const textarea = document.createElement("textarea");
+  textarea.className = "edit-textarea";
+  textarea.value = originalText;
+  textarea.rows = 2;
+
+  rowEl.innerHTML = "";
+  rowEl.appendChild(textarea);
+  textarea.focus();
+  textarea.style.height = "auto";
+  textarea.style.height = textarea.scrollHeight + "px";
+
+  textarea.addEventListener("input", () => {
+    textarea.style.height = "auto";
+    textarea.style.height = textarea.scrollHeight + "px";
+  });
+
+  textarea.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      submitEdit(messageIndex, textarea.value.trim());
+    }
+    if (e.key === "Escape") {
+      renderChatWindow();
+    }
+  });
+}
+
+async function submitEdit(messageIndex, newText) {
+  if (!newText) return;
+
+  const conv = getActiveConversation();
+  if (!conv) return;
+
+  // Is message ke baad ki saari purani conversation hata do (jaisa ChatGPT karta hai)
+  conv.messages = conv.messages.slice(0, messageIndex);
+  conv.messages.push({ role: "user", text: newText });
+  saveConversations();
+  renderChatWindow();
+
+  setLoadingState(true);
+  showTyping();
+
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: newText, session_id: conv.id }),
+    });
+
+    removeTyping();
+
+    if (!response.ok || !response.body) {
+      const data = await response.json().catch(() => ({}));
+      const errText = "⚠️ " + (data.error || "Kuch gadbad ho gayi, dobara try karo.");
+      conv.messages.push({ role: "bot", text: errText });
+      saveConversations();
+      renderChatWindow();
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    const botBubble = addMessageToDOM("", "bot");
+    let fullText = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunkText = decoder.decode(value, { stream: true });
+      fullText += chunkText;
+      botBubble.innerHTML = formatText(fullText);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    conv.messages.push({ role: "bot", text: fullText });
+    saveConversations();
+  } catch (err) {
+    removeTyping();
+    const errText = "⚠️ Backend se connect nahi ho paya.";
+    conv.messages.push({ role: "bot", text: errText });
+    saveConversations();
+    renderChatWindow();
+  } finally {
+    setLoadingState(false);
+  }
+}
 
 async function sendMessage() {
   console.log("SEND MESSAGE FUNCTION CALLED");
@@ -377,9 +518,11 @@ async function sendMessage() {
 
       const chunkText = decoder.decode(value, { stream: true });
       fullText += chunkText;
-      botBubble.innerHTML = formatText(fullText);
-      chatWindow.scrollTop = chatWindow.scrollHeight;
     }
+
+    // Agar poora text ek saath aaya (Render buffering ki wajah se),
+    // to use hum khud animate karke word-by-word dikhate hain
+    await typeOutText(botBubble, fullText);
 
     conv.messages.push({ role: "bot", text: fullText });
     saveConversations();
