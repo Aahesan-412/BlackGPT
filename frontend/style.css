@@ -195,6 +195,12 @@ body {
   border-top-left-radius: 4px;
 }
 
+.message-row.user .bubble {
+  background: var(--user-bubble);
+  color: #fff;
+  border-top-right-radius: 4px;
+}
+
 .message-row.user {
   position: relative;
 }

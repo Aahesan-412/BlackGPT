@@ -221,7 +221,6 @@ function addMessageToDOM(text, sender, messageIndex = null) {
   bubble.innerHTML = formatText(text);
   row.appendChild(bubble);
 
-  // Sirf user messages pe edit button dikhao
   if (sender === "user" && messageIndex !== null) {
     const editBtn = document.createElement("button");
     editBtn.className = "edit-btn";
