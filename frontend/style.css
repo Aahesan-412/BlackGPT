@@ -206,7 +206,8 @@ body {
 }
 
 .edit-btn {
-  display: none;
+  display: inline-block;
+  opacity: 0.4;
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -216,8 +217,10 @@ body {
   align-self: center;
 }
 
-.message-row.user:hover .edit-btn {
-  display: inline-block;
+.message-row.user:hover .edit-btn,
+.message-row.user.show-edit .edit-btn,
+.edit-btn:active {
+  opacity: 1;
 }
 
 .edit-btn:hover {

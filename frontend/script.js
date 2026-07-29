@@ -202,11 +202,15 @@ function typeOutText(bubbleEl, fullText) {
       }
       current += (i === 0 ? "" : " ") + words[i];
       bubbleEl.innerHTML = formatText(current);
-      chatWindow.scrollTop = chatWindow.scrollHeight;
+
+      const isNearBottom = chatWindow.scrollHeight - chatWindow.scrollTop - chatWindow.clientHeight < 100;
+      if (isNearBottom) {
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      }
+
       i++;
       setTimeout(step, 25); // 25ms per word — adjust speed here
     }
-
     step();
   });
 }
@@ -226,8 +230,16 @@ function addMessageToDOM(text, sender, messageIndex = null) {
     editBtn.className = "edit-btn";
     editBtn.textContent = "✏️";
     editBtn.title = "Edit message";
-    editBtn.addEventListener("click", () => startEditMessage(messageIndex, bubble, row));
+    editBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      startEditMessage(messageIndex, bubble, row);
+    });
     row.appendChild(editBtn);
+
+    // Mobile ke liye: bubble pe tap karne se edit button toggle ho
+    bubble.addEventListener("click", () => {
+      row.classList.toggle("show-edit");
+    });
   }
 
   chatWindow.appendChild(row);
@@ -438,7 +450,12 @@ async function submitEdit(messageIndex, newText) {
       const chunkText = decoder.decode(value, { stream: true });
       fullText += chunkText;
       botBubble.innerHTML = formatText(fullText);
-      chatWindow.scrollTop = chatWindow.scrollHeight;
+
+      // Sirf tab auto-scroll karo jab user already bottom ke paas ho
+      const isNearBottom = chatWindow.scrollHeight - chatWindow.scrollTop - chatWindow.clientHeight < 100;
+      if (isNearBottom) {
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      }
     }
 
     conv.messages.push({ role: "bot", text: fullText });
