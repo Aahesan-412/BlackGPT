@@ -237,9 +237,23 @@ function addMessageToDOM(text, sender, messageIndex = null) {
     row.appendChild(editBtn);
 
     // Mobile ke liye: bubble pe tap karne se edit button toggle ho
-    bubble.addEventListener("click", () => {
-      row.classList.toggle("show-edit");
-    });
+    // Sirf mobile devices ke liye
+    bubble.addEventListener("click", (e) => {
+      if (window.innerWidth <= 768) {
+
+        e.stopPropagation();
+
+        // Pehle dusre sab edit buttons hide karo
+        document.querySelectorAll(".message-row.show-edit").forEach(r => {
+            if (r !== row) {
+                r.classList.remove("show-edit");
+            }
+        });
+
+        // Current message toggle
+        row.classList.toggle("show-edit");
+    }
+});
   }
 
   chatWindow.appendChild(row);
@@ -602,4 +616,17 @@ window.addEventListener("DOMContentLoaded", () => {
     renderHistoryList();
     renderChatWindow();
   }
+});
+
+// Mobile par bahar click karne se edit button hide ho jaye
+document.addEventListener("click", (e) => {
+
+    if (window.innerWidth > 768) return;
+
+    if (!e.target.closest(".message-row")) {
+        document.querySelectorAll(".message-row.show-edit").forEach(row => {
+            row.classList.remove("show-edit");
+        });
+    }
+
 });
