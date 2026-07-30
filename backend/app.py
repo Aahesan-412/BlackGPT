@@ -130,7 +130,7 @@ def clear_session_memory(session_id):
 
 
 # ---------------------------------------------------
-# 6) LANGGRAPH — helper endpoints ke liye
+# 6) LANGGRAPH — helper endpoints 
 # ---------------------------------------------------
 
 class ChatState(TypedDict):
@@ -153,12 +153,12 @@ def generate_reply_node(state: ChatState) -> ChatState:
         else "No relevant past context found."
     )
     system_prompt = (
-                "You are Black GPT, a helpful and friendly AI assistant.\n"
-                "Always reply in the SAME language and style the user writes in "
-                "(English -> English, Hindi/Hinglish -> Hindi/Hinglish).\n"
-                "Keep answers clear, concise, and well-formatted.\n"
-                "Do not use markdown formatting like asterisks or hashtags — respond in plain text only."
-            )
+        "You are Black GPT, a helpful and friendly AI assistant.\n"
+        "Always reply in the SAME language and style the user writes in "
+        "(English -> English, Hindi/Hinglish -> Hindi/Hinglish).\n"
+        "Keep answers clear, concise, and well-formatted.\n\n"
+        f"Relevant memory from earlier in this conversation:\n{context_text}"
+    )
     messages = [SystemMessage(content=system_prompt)]
     history = recent_chats.get(session_id, [])
     for msg in history[-MAX_RECENT_HISTORY:]:
@@ -221,7 +221,7 @@ def chat():
     def generate_stream():
         full_reply = ""
         try:
-            # 1. Tumhara original LangGraph/ChromaDB memory ka saara fetch logic yahan chalega
+            
             relevant_context = get_relevant_memory(session_id, user_message)
             context_text = "\n".join(f"- {c}" for c in relevant_context) if relevant_context else "No past context."
 
@@ -237,8 +237,8 @@ def chat():
                 messages.append(cls(content=msg["content"]))
             messages.append(HumanMessage(content=user_message))
 
-            # ==========================================
-            # CRITICAL LIVE FIX: Pehla empty byte turant release karo
+           
+        
             # ==========================================
             yield " " 
 
@@ -249,7 +249,7 @@ def chat():
                     full_reply += token
                     yield token
 
-            # 3. Tumhara original LangGraph save_memory logic yahan bilkul safe chalega
+            
             save_to_memory(session_id, "user", user_message)
             save_to_memory(session_id, "assistant", full_reply)
             
@@ -261,8 +261,7 @@ def chat():
             logger.exception("Streaming error")
             yield f"\n\n⚠️ Error: {str(e)}"
 
-    # Connection headers jo Render proxy ko line-by-line streaming bhejne par majboor karenge
-    # app.py ke /chat endpoint ke bilkul end ka return statement aisa hona chahiye:
+    
     response = Response(
         stream_with_context(generate_stream()), 
         mimetype="text/plain"
@@ -273,7 +272,7 @@ def chat():
     response.headers["Connection"] = "keep-alive"
     response.headers["Content-Type"] = "text/plain; charset=utf-8"
     
-    # CORS headers manual safety ke liye (agar Flask-CORS kabhi fail ho)
+  
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"

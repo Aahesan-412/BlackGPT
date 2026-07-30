@@ -179,12 +179,12 @@ function renderChatWindow() {
 }
 
 function formatText(text) {
-  // Pehle HTML-unsafe characters escape karo (security ke liye)
+  
   const escaped = text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-  // Phir **bold** ko <strong> me convert karo
+  
   return escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 }
 
@@ -236,14 +236,13 @@ function addMessageToDOM(text, sender, messageIndex = null) {
     });
     row.appendChild(editBtn);
 
-    // Mobile ke liye: bubble pe tap karne se edit button toggle ho
-    // Sirf mobile devices ke liye
+    
     bubble.addEventListener("click", (e) => {
       if (window.innerWidth <= 768) {
 
         e.stopPropagation();
 
-        // Pehle dusre sab edit buttons hide karo
+        
         document.querySelectorAll(".message-row.show-edit").forEach(r => {
             if (r !== row) {
                 r.classList.remove("show-edit");
@@ -361,7 +360,7 @@ micBtn.addEventListener("click", () => {
   }
 });
 
-// ---------- AI se meaningful chat title banwana ----------
+// ---------- with the help of Ai making meaningful chat title  ----------
 async function generateConversationTitle(convId, userMessage, aiReply) {
   console.log("Title generation triggered for conversation:", convId); // Debugging line
   try {
@@ -385,8 +384,8 @@ async function generateConversationTitle(convId, userMessage, aiReply) {
     console.warn("Title generate nahi ho paya:", err);
   }
 }
-// ---------- Message bhejna (STREAMING) ----------
-// ---------- Message bhejna (STREAMING) ----------
+
+// ---------- Message (STREAMING) ----------
 function startEditMessage(messageIndex, bubbleEl, rowEl) {
   const conv = getActiveConversation();
   if (!conv) return;
@@ -426,7 +425,7 @@ async function submitEdit(messageIndex, newText) {
   const conv = getActiveConversation();
   if (!conv) return;
 
-  // Is message ke baad ki saari purani conversation hata do (jaisa ChatGPT karta hai)
+  
   conv.messages = conv.messages.slice(0, messageIndex);
   conv.messages.push({ role: "user", text: newText });
   saveConversations();
@@ -465,7 +464,7 @@ async function submitEdit(messageIndex, newText) {
       fullText += chunkText;
       botBubble.innerHTML = formatText(fullText);
 
-      // Sirf tab auto-scroll karo jab user already bottom ke paas ho
+      
       const isNearBottom = chatWindow.scrollHeight - chatWindow.scrollTop - chatWindow.clientHeight < 100;
       if (isNearBottom) {
         chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -499,7 +498,7 @@ async function sendMessage() {
     conv = getActiveConversation();
   }
 
-  // FORCE CHECK: Agar title abhi bhi "New Chat" hai, to hume title generate karna hai
+  
   const needsTitleUpdate = (conv.title === "New Chat");
 
   conv.messages.push({ role: "user", text });
@@ -550,14 +549,13 @@ async function sendMessage() {
       fullText += chunkText;
     }
 
-    // Agar poora text ek saath aaya (Render buffering ki wajah se),
-    // to use hum khud animate karke word-by-word dikhate hain
+    
     await typeOutText(botBubble, fullText);
 
     conv.messages.push({ role: "bot", text: fullText });
     saveConversations();
 
-    // Agar chat ka title abhi tak default "New Chat" hai, to use generate karo!
+    
     if (needsTitleUpdate) {
       console.log("Calling title generator because title is 'New Chat'...");
       setTimeout(() => {
@@ -618,7 +616,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// Mobile par bahar click karne se edit button hide ho jaye
+
 document.addEventListener("click", (e) => {
 
     if (window.innerWidth > 768) return;
