@@ -2,7 +2,7 @@
 
 A ChatGPT-style AI-powered conversational chatbot — built from scratch, fully responsive, context-aware, and deployed live in production using entirely free and open-source tools.
 
-🔗 **Live Demo:** https://blacckgpt.netlify.app/<br>
+
 🔗 **Backend API:** https://blackgpt-a5xz.onrender.com<br>
 💻 **Source Code:** https://github.com/Aahesan-412/BlackGPT<br>
 
